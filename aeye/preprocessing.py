@@ -75,21 +75,6 @@ def gen_sentence_lists(dataset, language_name):
             sentences_list.append((idx, sentence))
     return sentences_list,lang
 
-def get_preprocessed_data(split: str, data_path = None):
-    if data_path == None:
-        data_path = '/home/jithin/datasets/imageCaptioning/flicker8k/preprocessed/'
-        data_path = Path(data_path)
-
-    assert split in ['train', 'val', 'test']
-
-    features_fname = 'flickr8k_features_%s'%(split)
-    sentences_fname = 'sentence_list_%s_flickr8k'%(split)
-    lang_fname = 'lang_%s_flickr8k'%(split)
-
-    features = load(open(data_path/features_fname, 'rb'))
-    sentence_list = load(open(data_path/sentences_fname, 'rb'))
-    lang = load(open(data_path/lang_fname, 'rb'))
-
 def indexesFromSentence(lang: Lang, sentence: list):
     return [lang.word2index[word] for word in sentence]
 
@@ -116,3 +101,30 @@ def tensorForImageCaption(features_dict, sentence_tuple, lang):
     features = torch.from_numpy(features)
     return features, target_tensor
     return features, sentence_list,lang
+
+def get_preprocessed_data(split: str, data_path = None):
+    if data_path == None:
+        data_path = '/home/jithin/datasets/imageCaptioning/flicker8k/preprocessed/'
+        data_path = Path(data_path)
+
+    assert split in ['train', 'val', 'test']
+
+    features_fname = 'flickr8k_features_%s'%(split)
+    sentences_fname = 'sentence_list_%s_flickr8k'%(split)
+    lang_fname = 'lang_%s_flickr8k'%(split)
+
+    features = load(open(data_path/features_fname, 'rb'))
+    sentence_list = load(open(data_path/sentences_fname, 'rb'))
+    lang = load(open(data_path/lang_fname, 'rb'))
+
+    return features, sentence_list, lang
+
+if __name__ == '__main__':
+    print('Running test for preprocess...')
+    try:
+        features, sents, lang = get_preprocessed_data('test')
+        assert(len(sents) == 5000 and len(features) == 1000)
+        print('OK')
+    except:
+        print('Failed test')
+
