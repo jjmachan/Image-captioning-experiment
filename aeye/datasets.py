@@ -10,7 +10,7 @@ annotations = namedtuple('Annotations',['image_id','sentences'])
 class Flickr8k(Dataset):
     """ for flickr 8k dataset."""
 
-    def __init__(self, img_dir, ann_file, split='train', transform=None, target_transform=None):
+    def __init__(self, img_dir, ann_file, vocab, split='train', transform=None, target_transform=None):
         """
         Args:
             root (str): The root dir that points to the Flickr images.
