@@ -61,6 +61,9 @@ class Flickr8k(Dataset):
 
         # Captions
         target = self.annotations[index].sentences
-        captions = [torch.tensor([self.vocab(word) for word in sent]) for sent in target]
+        captions = [torch.tensor(
+                    [self.vocab.SOS_token] +
+                    [self.vocab(word) for word in sent]  +
+                    [self.vocab.EOS_token]) for sent in target]
 
         return img_id, img, captions

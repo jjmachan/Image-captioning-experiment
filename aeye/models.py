@@ -30,11 +30,12 @@ class Encoder(nn.Module):
         return x
 
 class DecoderLSTM(nn.Module):
-    def __init__(self, hidden_size, output_size, batch_size, num_layers = 1):
+    def __init__(self, hidden_size, output_size, batch_size, device, num_layers = 1):
         super(DecoderLSTM, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.batch_size = batch_size
+        self.device = device
 
         self.embeddings = nn.Embedding(output_size, hidden_size)
         self.lstm = nn.LSTM(hidden_size, hidden_size, num_layers)
@@ -54,7 +55,7 @@ class DecoderLSTM(nn.Module):
         img_vec = img_vec.unsqueeze(0)
         assert img_vec.shape == (self.num_layers, self.batch_size, self.hidden_size)
         return (img_vec,
-                torch.zeros(self.num_layers, self.batch_size, self.hidden_size))
+                torch.zeros(self.num_layers, self.batch_size, self.hidden_size, device=self.device))
 
 
 if __name__ == "__main__":
