@@ -1,39 +1,61 @@
 import random
 
 import torch
+from torchvision import models
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+class Encoder(nn.Module):
+    """Class to build new model including all but last layers"""
+    def __init__(self, output_dim=1000):
+        super(Encoder, self).__init__()
+        # TODO: change with resnet152?
+        pretrained_model = models.resnet34(pretrained=True)
+        self.resnet = nn.Sequential(*list(pretrained_model.children())[:-1])
+        self.linear = nn.Linear(pretrained_model.fc.in_features, output_dim)
+        self.batchnorm = nn.BatchNorm1d(output_dim, momentum=0.01)
+        self.init_weights()
+
+    def init_weights(self):
+        # weight init, inspired by tutorial
+        self.linear.weight.data.normal_(0,0.02)
+        self.linear.bias.data.fill_(0)
+
+    def forward(self, x):
+        x = self.resnet(x)
+        x = x.view(x.size(0), -1) # flatten
+        x = self.linear(x)
+
+        return x
+
 class DecoderLSTM(nn.Module):
-    def __init__(self, hidden_size, output_size, num_layers = 2, device = None):
+    def __init__(self, hidden_size, output_size, batch_size, num_layers = 1):
         super(DecoderLSTM, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        if device == None:
-            self.device = torch.device('cpu')
-        else:
-            self.device = device
+        self.batch_size = batch_size
 
         self.embeddings = nn.Embedding(output_size, hidden_size)
         self.lstm = nn.LSTM(hidden_size, hidden_size, num_layers)
         self.out = nn.Linear(hidden_size, output_size)
-        self.softmax = nn.LogSoftmax(dim=2)
 
-    def forward(self, input, hidden, c):
-        output = self.embeddings(input)
-        output = output.squeeze(2)
+    def forward(self, img_vec, captions, lengths):
+        hidden = self.initHidden(img_vec)
+        output = self.embeddings(captions)
         output = F.relu(output)
-        output, (hidden, c)= self.lstm(output, (hidden, c))
-        output = self.out(output)
-        #print(output.shape)
-        output = self.softmax(output)
-        #print(output.shape)
-        return output, hidden, c
+        output = torch.nn.utils.rnn.pack_padded_sequence(output, lengths)
+        output, hidden= self.lstm(output, hidden)
+        output = self.out(output.data)
 
-    def initHidden(self, batch_size):
-        return (torch.zeros(self.num_layers, batch_size, self.hidden_size, device=self.device),
-                torch.zeros(self.num_layers, batch_size, self.hidden_size, device=self.device))
+        return output, hidden
+
+    def initHidden(self, img_vec):
+        img_vec = img_vec.unsqueeze(0)
+        assert img_vec.shape == (self.num_layers, self.batch_size, self.hidden_size)
+        return (img_vec,
+                torch.zeros(self.num_layers, self.batch_size, self.hidden_size))
+
 
 if __name__ == "__main__":
     hidden_size = 256

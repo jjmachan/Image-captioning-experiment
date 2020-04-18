@@ -1,9 +1,10 @@
-from torch.utils.data import Dataset
-from PIL import Image
-
 import json
 from collections import namedtuple
 from pathlib import Path
+
+import torch
+from torch.utils.data import Dataset
+from PIL import Image
 
 annotations = namedtuple('Annotations',['image_id','sentences'])
 
@@ -20,6 +21,7 @@ class Flickr8k(Dataset):
             target_transforms: transforms for sentences.
         """
         self.img_dir = Path(img_dir)
+        self.vocab = vocab
         assert split in ['train', 'test', 'val']
         self.split = split
         self.transform = transform
@@ -59,7 +61,6 @@ class Flickr8k(Dataset):
 
         # Captions
         target = self.annotations[index].sentences
-        if self.target_transform is not None:
-            target = self.target_transform(target)
+        captions = [torch.tensor([self.vocab(word) for word in sent]) for sent in target]
 
-        return img_id, img, target
+        return img_id, img, captions
