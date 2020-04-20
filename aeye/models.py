@@ -29,6 +29,7 @@ class Encoder(nn.Module):
 
         return x
 
+
 class DecoderLSTM(nn.Module):
     def __init__(self, hidden_size, output_size, batch_size, device, num_layers = 1):
         super(DecoderLSTM, self).__init__()
@@ -46,17 +47,35 @@ class DecoderLSTM(nn.Module):
         output = self.embeddings(captions)
         output = F.relu(output)
         output = torch.nn.utils.rnn.pack_padded_sequence(output, lengths)
-        output, hidden= self.lstm(output, hidden)
+        output, hidden = self.lstm(output, hidden)
         output = self.out(output.data)
 
         return output, hidden
 
-    def initHidden(self, img_vec):
-        img_vec = img_vec.unsqueeze(0)
-        assert img_vec.shape == (self.num_layers, self.batch_size, self.hidden_size)
-        return (img_vec,
-                torch.zeros(self.num_layers, self.batch_size, self.hidden_size, device=self.device))
+    def sample(self, img_vec, max_length=30):
+        samples = list()
 
+        # Check if image batch_size is 1
+        assert img_vec.size(0) == 1
+        hidden = self.initHidden(img_vec, batch_size=1)
+        input_cap = torch.tensor([1], device=self.device).long().unsqueeze(0)
+        input = self.embeddings(input_cap)
+        input = F.relu(input)
+        for i in range(max_length):
+            output, hidden = self.lstm(input, hidden)
+            output = self.out(output)
+
+            samples.append(output.topk(1).indices.item())
+
+
+        return samples
+
+    def initHidden(self, img_vec, batch_size=None):
+        if batch_size is None:
+            batch_size = self.batch_size
+        img_vec = img_vec.unsqueeze(0)
+        assert img_vec.shape == (self.num_layers, batch_size, self.hidden_size)
+        return (img_vec, torch.zeros(self.num_layers, batch_size, self.hidden_size, device=self.device))
 
 if __name__ == "__main__":
     hidden_size = 256
