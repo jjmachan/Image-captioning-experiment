@@ -13,8 +13,10 @@ plt.switch_backend('agg')
 import matplotlib.ticker as ticker
 import numpy as np
 import rich
+from tqdm import tqdm
 
 import aeye
+from aeye.preprocessing import collate_fn
 from aeye.trainUtils import asMinutes, timeSince
 from aeye.models import Encoder, DecoderLSTM
 
@@ -59,6 +61,7 @@ def trainIters(
         encoder,
         decoder,
         device,
+        criterion,
         print_every=1000,
         plot_every=100,
         learning_rate=0.001
@@ -72,10 +75,10 @@ def trainIters(
     # the number of batches
     n_iters = len(dataloader)
 
-    criterion = nn.CrossEntropyLoss().to(device)
+    criterion = criterion.to(device)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr = learning_rate)
 
-    for iter, (_, imgs, captions, caption_lengths) in enumerate(dataloader, start=0):
+    for iter, (_, imgs, captions, caption_lengths) in enumerate(dataloader):
         imgs = imgs.to(device)
         captions = captions.to(device)
         caption_lengths = torch.tensor(caption_lengths).to(device)
@@ -96,7 +99,27 @@ def trainIters(
 
     return print_losses, plot_losses
 
+def eval_loss(dataloader,
+         encoder,
+         decoder,
+         criterion,
+         device):
+    batch_losses = list()
+    loss = 0
 
+    for i, (img_ids, imgs, captions, caption_lengths) in tqdm(enumerate(dataloader), desc=loss, total=len(dataloader)):
+        with torch.no_grad():
+            imgs = imgs.to(device)
+            captions = captions.to(device)
+            caption_lengths = torch.tensor(caption_lengths).to(device)
+            img_vecs = encoder(imgs)
+            output, _ = decoder(img_vecs, captions.t(), caption_lengths)
+            target = pack_padded_sequence(captions.t(), caption_lengths).data
+
+            loss = criterion(output, target)
+            batch_losses.append(loss.item())
+
+    return sum(batch_losses)/len(batch_losses)
 
 if __name__ == '__main__':
     # Configs
@@ -104,7 +127,7 @@ if __name__ == '__main__':
     shuffle = True
     batch_size = 5
     num_workers = 1
-    epochs = 10
+    epochs = 1
     hidden_size = 512
 
     # LOAD DATA
@@ -122,17 +145,38 @@ if __name__ == '__main__':
      std=[0.229, 0.224, 0.225]
      )])
 
-    dataset = aeye.Flickr8k(img_dir=img_files,
+    dataset_train = aeye.Flickr8k(img_dir=img_files,
+                            ann_file=ann_file,
+                            vocab=vocab,
+                            split='train',
+                            transform=transform)
+
+    dataset_test = aeye.Flickr8k(img_dir=img_files,
+                            ann_file=ann_file,
+                            vocab=vocab,
+                            split='test',
+                            transform=transform)
+
+    dataset_val = aeye.Flickr8k(img_dir=img_files,
                             ann_file=ann_file,
                             vocab=vocab,
                             split='val',
                             transform=transform)
 
-    dataloader = torch.utils.data.DataLoader(dataset = dataset,
-                                       batch_size = batch_size,
-                                       shuffle = shuffle,
-                                       num_workers = num_workers,
-                                       collate_fn = aeye.collate_fn)
+    trainDataloader = torch.utils.data.DataLoader(dataset = dataset_train,
+                                       batch_size = 10,
+                                       shuffle = True,
+                                       num_workers = 3,
+                                       collate_fn = collate_fn)
+
+    testDataloader = torch.utils.data.DataLoader(dataset = dataset_test,
+                                       batch_size = 10,
+                                       shuffle = True,
+                                       num_workers = 1,
+                                       collate_fn = collate_fn)
+
+    # valDataloader will not work because the sentences are not padded
+    # and are of different lengths.
 
 
     # INITIATE MODELS
@@ -140,16 +184,25 @@ if __name__ == '__main__':
     # training the model
     decoder = DecoderLSTM(hidden_size, vocab.n_words, batch_size*5, device)
     encoder = Encoder(hidden_size)
-
+    criterion = nn.CrossEntropyLoss()
 
 
     for epoch in range(epochs):
         # train 1 epoch
         print('[Epoch: %d / %d]'%(epoch+1, epochs))
-        print_losses, plot_losses = trainIters(dataloader,
+        print_losses, plot_losses = trainIters(trainDataloader,
                                                encoder.to(device),
                                                decoder.to(device),
                                                device,
-                                               print_every=100)
+                                               criterion,
+                                               print_every=10)
 
         print('[Epoch] Training Loss: %.4f'%(sum(print_losses)/len(print_losses)))
+
+        print('[Epoch] Running Eval')
+        eval_losss = eval_loss(testDataloader,
+                                encoder.to(device),
+                                decoder.to(device),
+                                criterion,
+                                device)
+        print('[Epoch] Eval loss: %.4f'%(eval_losss))
