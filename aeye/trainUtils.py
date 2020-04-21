@@ -1,4 +1,5 @@
 import time
+import random
 import math
 
 import torch
@@ -6,6 +7,7 @@ from torch.nn.utils.rnn import pack_padded_sequence
 from torch import optim
 from tqdm import tqdm
 
+from .utils import convert_to_text
 def asMinutes(s):
     m = math.floor(s / 60)
     s -= m * 60
@@ -120,4 +122,17 @@ def eval_loss(dataloader,
 
     return sum(batch_losses)/len(batch_losses)
 
+
+def sample(dataset, encoder, decoder, device, vocab):
+    idx = random.randint(0, len(dataset))
+    img_id, img, captions = dataset[idx]
+    imgs  = img.unsqueeze(0).to(device)
+    img_vec = encoder.to(device)(imgs)
+    output = decoder.to(device).sample(img_vec)
+    output_sent = convert_to_text(output, vocab)
+
+    target_sents = list()
+    for target in captions:
+        target_sents.append(convert_to_text(target.tolist(), vocab))
+    print(output_sent, target_sents)
 

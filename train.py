@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 import aeye
 from aeye import utils
-from aeye.trainUtils import trainIters, eval_loss
+from aeye.trainUtils import trainIters, eval_loss, sample
 from aeye.preprocessing import collate_fn
 from aeye.trainUtils import asMinutes, timeSince
 from aeye.models import Encoder, DecoderLSTM
@@ -107,6 +107,9 @@ def main():
                                     device)
             print('[Epoch] Eval loss: %.4f'%(eval_losss))
             losses_val.append(eval_losss)
+
+            print('[Epoch] Sample from Val')
+            sample(dataset_val, encoder, decoder, device, vocab)
 
     except KeyboardInterrupt:
         pass
