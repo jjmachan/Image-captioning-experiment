@@ -141,3 +141,6 @@ checklink/cookies.txt
 
 # Experiments data
 /experiments/.data
+
+# saved models
+saved_models/

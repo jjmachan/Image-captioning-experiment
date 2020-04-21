@@ -10,6 +10,7 @@ import rich
 from tqdm import tqdm
 
 import aeye
+from aeye import utils
 from aeye.trainUtils import trainIters, eval_loss
 from aeye.preprocessing import collate_fn
 from aeye.trainUtils import asMinutes, timeSince
@@ -22,7 +23,7 @@ def main():
     shuffle = True
     batch_size = 10
     num_workers = 0
-    epochs = 1
+    epochs = 300
     hidden_size = 512
 
     # LOAD DATA
@@ -81,6 +82,9 @@ def main():
     encoder = Encoder(hidden_size)
     criterion = nn.CrossEntropyLoss()
 
+    losses_train = list()
+    losses_val = list()
+
     try:
         for epoch in range(epochs):
             # train 1 epoch
@@ -93,6 +97,7 @@ def main():
                                                    print_every=100)
 
             print('[Epoch] Training Loss: %.4f'%(sum(print_losses)/len(print_losses)))
+            losses_train += print_losses
 
             print('[Epoch] Running Eval')
             eval_losss = eval_loss(testDataloader,
@@ -101,9 +106,12 @@ def main():
                                     criterion,
                                     device)
             print('[Epoch] Eval loss: %.4f'%(eval_losss))
+            losses_val.append(eval_losss)
+
     except KeyboardInterrupt:
         pass
     finally:
-        print('Saving Model')
+        utils.save_model(encoder, decoder, epoch, losses_train, losses_val, \
+                'saved_models')
 if __name__ == '__main__':
     main()
