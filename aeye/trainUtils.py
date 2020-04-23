@@ -47,7 +47,10 @@ def train(
     # Decoder
     output, _ = decoder(img_vec, caption_tensor.t(), caption_lengths)
 
-    target = pack_padded_sequence(caption_tensor.t(), caption_lengths).data
+    target = caption_tensor[:,1:]
+    caption_lengths -= 1
+    target = pack_padded_sequence(target.t(), caption_lengths).data
+
     loss = criterion(output, target)
 
     loss.backward()
@@ -115,6 +118,9 @@ def eval_loss(dataloader,
             caption_lengths = torch.tensor(caption_lengths).to(device)
             img_vecs = encoder(imgs)
             output, _ = decoder(img_vecs, captions.t(), caption_lengths)
+
+            target = captions[:, 1:]
+            caption_lengths = caption_lengths - 1
             target = pack_padded_sequence(captions.t(), caption_lengths).data
 
             loss = criterion(output, target)
@@ -134,5 +140,5 @@ def sample(dataset, encoder, decoder, device, vocab):
     target_sents = list()
     for target in captions:
         target_sents.append(convert_to_text(target.tolist(), vocab))
-    print(output_sent, target_sents)
+    return (output_sent, target_sents)
 

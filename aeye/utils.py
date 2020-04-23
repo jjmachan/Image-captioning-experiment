@@ -36,3 +36,20 @@ def load_model(checkpoint_file, sample=False):
 
     return encoder_state_dict, decoder_state_dict, epoch, losses_train, \
             losses_val
+
+class log():
+    def __init__(self, log_dir):
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+        self.log_dir = log_dir
+        self.log_file = 'log-%s.txt'%(datetime.now())
+        self.buffer = open(os.path.join(log_dir, self.log_file), 'w')
+        print('logging to: ', self.log_file)
+
+    def __call__(self, log_str):
+        print(log_str)
+        self.buffer.write(log_str + '\n')
+
+    def __del__(self):
+        self.buffer.close()
+        print('closed log!')

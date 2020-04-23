@@ -79,6 +79,60 @@ class DecoderLSTM(nn.Module):
         assert img_vec.shape == (self.num_layers, batch_size, self.hidden_size)
         return (img_vec, torch.zeros(self.num_layers, batch_size, self.hidden_size, device=self.device))
 
+class DecoderLSTM_mod(nn.Module):
+    def __init__(self, hidden_size, output_size, batch_size, device, num_layers = 1):
+        super(DecoderLSTM_mod, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.batch_size = batch_size
+        self.device = device
+
+        self.embeddings = nn.Embedding(output_size, hidden_size)
+        self.lstm = nn.LSTM(hidden_size, hidden_size, num_layers)
+        self.out = nn.Linear(hidden_size, output_size)
+
+    def forward(self, img_vec, captions, lengths):
+        hidden = self.initHidden(img_vec)
+        output = self.embeddings(captions)
+        output = F.relu(output)
+
+        lengths = lengths - 1
+        output = torch.nn.utils.rnn.pack_padded_sequence(output, lengths)
+        output, hidden = self.lstm(output, hidden)
+        output = self.out(output.data)
+
+        return output, hidden
+
+    def sample(self, img_vec, max_length=30):
+        samples = list()
+
+        # Check if image batch_size is 1
+        assert img_vec.size(0) == 1
+        hidden = self.initHidden(img_vec, batch_size=1)
+        input_cap = torch.tensor([1], device=self.device).long().unsqueeze(0)
+
+        for i in range(max_length):
+            input = self.embeddings(input_cap)
+            input = F.relu(input)
+            output, hidden = self.lstm(input, hidden)
+            output = self.out(output)
+
+            input_cap = output.topk(1).indices
+            input_cap = input_cap.squeeze(0)
+            samples.append(input_cap.item())
+
+
+        return samples
+
+    def initHidden(self, img_vec, batch_size=None):
+        if batch_size is None:
+            batch_size = self.batch_size
+        img_vec = img_vec.unsqueeze(0)
+
+        c = torch.zeros(self.num_layers, batch_size, self.hidden_size, device=self.device)
+        h = img_vec.expand_as(c).contiguous()
+        return (h,c)
+
 if __name__ == "__main__":
     hidden_size = 256
     output_size = 512

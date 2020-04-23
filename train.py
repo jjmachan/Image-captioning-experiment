@@ -14,7 +14,8 @@ from aeye import utils
 from aeye.trainUtils import trainIters, eval_loss, sample
 from aeye.preprocessing import collate_fn
 from aeye.trainUtils import asMinutes, timeSince
-from aeye.models import Encoder, DecoderLSTM
+from aeye.models import Encoder
+from aeye.models import DecoderLSTM_mod as DecoderLSTM
 
 
 def main():
@@ -78,17 +79,19 @@ def main():
     # INITIATE MODELS
     # each sample in the dataset has 5 sentences and each will be used for
     # training the model
-    decoder = DecoderLSTM(hidden_size, vocab.n_words, batch_size*5, device)
+    decoder = DecoderLSTM(hidden_size, vocab.n_words, batch_size*5, device, num_layers=3)
     encoder = Encoder(hidden_size)
     criterion = nn.CrossEntropyLoss()
 
     losses_train = list()
     losses_val = list()
 
+    log = utils.log('logs')
+
     try:
         for epoch in range(epochs):
             # train 1 epoch
-            print('[Epoch: %d / %d]'%(epoch+1, epochs))
+            log('[Epoch: %d / %d]'%(epoch+1, epochs))
             print_losses, plot_losses = trainIters(trainDataloader,
                                                    encoder.to(device),
                                                    decoder.to(device),
@@ -96,20 +99,24 @@ def main():
                                                    criterion,
                                                    print_every=100)
 
-            print('[Epoch] Training Loss: %.4f'%(sum(print_losses)/len(print_losses)))
+            log('[Epoch] Training Loss: %.4f'%(sum(print_losses)/len(print_losses)))
             losses_train += print_losses
 
-            print('[Epoch] Running Eval')
+            log('[Epoch] Running Eval')
             eval_losss = eval_loss(testDataloader,
                                     encoder.to(device),
                                     decoder.to(device),
                                     criterion,
                                     device)
-            print('[Epoch] Eval loss: %.4f'%(eval_losss))
+            log('[Epoch] Eval loss: %.4f'%(eval_losss))
             losses_val.append(eval_losss)
 
-            print('[Epoch] Sample from Val')
-            sample(dataset_val, encoder, decoder, device, vocab)
+            log('[Epoch] Sample from Val')
+            output_sent, target_sent = \
+                    sample(dataset_val, encoder, decoder, device, vocab)
+            log('Output: %s'%(output_sent))
+            for i, sent in enumerate(target_sent):
+                log('[%d]: %s'%(i, sent))
 
     except KeyboardInterrupt:
         pass
