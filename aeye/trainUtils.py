@@ -47,9 +47,7 @@ def train(
     # Decoder
     output, _ = decoder(img_vec, caption_tensor.t(), caption_lengths)
 
-    target = caption_tensor[:,1:]
-    caption_lengths -= 1
-    target = pack_padded_sequence(target.t(), caption_lengths).data
+    target = pack_padded_sequence(caption_tensor.t(), caption_lengths).data
 
     loss = criterion(output, target)
 
@@ -119,8 +117,6 @@ def eval_loss(dataloader,
             img_vecs = encoder(imgs)
             output, _ = decoder(img_vecs, captions.t(), caption_lengths)
 
-            target = captions[:, 1:]
-            caption_lengths = caption_lengths - 1
             target = pack_padded_sequence(captions.t(), caption_lengths).data
 
             loss = criterion(output, target)
